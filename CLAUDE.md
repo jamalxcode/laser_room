@@ -12,8 +12,8 @@ remove and finally clear the table.
 
 ## Key documents (read before changing behaviour)
 
-- `docs/SPEC.md`: every rule, numbered (R rooms, J joining, B board, S sync, T platforms), plus the build
-  status (section 9). A behaviour change updates it in the same commit.
+- `docs/SPEC.md`: every rule, numbered (R rooms, J joining, B board, V versions and commits, S sync,
+  T platforms), plus the build status (section 10). A behaviour change updates it in the same commit.
 - `docs/DECISIONS.md`: why each rule is the way it is, and what was dropped. Add an entry for each significant
   decision.
 - `docs/CONVERSATION.md`: the owner's requests and answers in order. Append to it when the owner decides
@@ -30,7 +30,8 @@ documents disagree, flag it rather than silently picking one.
    The app creates and keeps every key on the device. (Apple's App Store distributes the iPhone app; that's
    accepted.)
 4. **No biometrics.** A PIN the person picks protects their place; 10 wrong in a row wipe the device's rooms.
-5. **Simple first:** the first version is notes, 👍/👎, replies and attachments (SPEC section 8). Don't add
+5. **Simple first:** the first version is notes, 👍/👎, replies and attachments, with commits and versions
+   (SPEC section 9). Don't add
    later features (connections, question cards, outcomes, templates…) unless asked.
 
 ## Layout
