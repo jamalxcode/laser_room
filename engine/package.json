@@ -1,0 +1,26 @@
+{
+  "name": "laser-room-engine",
+  "version": "0.1.0",
+  "description": "Laser Room's engine: rooms, invite links, PIN vault, the board and peer-to-peer sync on Hypercore",
+  "main": "index.js",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "brittle-node test/*.js"
+  },
+  "dependencies": {
+    "autobase": "7.28.2",
+    "b4a": "1.9.0",
+    "blind-pairing": "^2.3.1",
+    "corestore": "7.16.1",
+    "hyperbee": "^2.26.5",
+    "hypercore-crypto": "3.7.0",
+    "hyperswarm": "4.17.2",
+    "ready-resource": "^1.2.0",
+    "sodium-universal": "5.0.1",
+    "z32": "^1.1.0"
+  },
+  "devDependencies": {
+    "brittle": "4.6.0",
+    "hyperdht": "6.36.0"
+  }
+}

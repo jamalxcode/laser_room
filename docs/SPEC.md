@@ -24,7 +24,7 @@ Status: **specification; not built yet.** Version of this document: 2026-11-22. 
 |---|---|
 | R1 | Anyone with the app can **create a room** and becomes its **owner**. |
 | R2 | The owner **invites** people with an **invite link** (also shown as a QR code) sent through any channel they like (message, email, in person). Per invite, the owner chooses a **reusable** link or a **single-use** link. |
-| R3 | **Opening an invite link is enough to join.** There is no approval step. |
+| R3 | **Opening an invite link is enough to join.** There is no approval step. One existing member's app (the owner's always-on computer, or anyone online) has to be online at that moment to let the newcomer's app in, automatically; if nobody is online, joining waits until someone is. |
 | R4 | The link carries the room's key; anyone who obtains it can join and read. It should be shared privately. |
 | R5 | The owner can name **co-owners**, who can do everything the owner can except remove the owner. |
 | R6 | The owner can **hand over** ownership to another member. |
