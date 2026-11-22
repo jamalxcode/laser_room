@@ -31,7 +31,7 @@ The Go engine is being built (section 9). Why: `docs/DECISIONS.md`. How the desi
 | R5 | The owner can name **co-owners**, who can do everything the owner can except remove the owner. |
 | R6 | The owner can **hand over** ownership to another member. |
 | R7 | **Mute:** the owner or a co-owner can mute a member; commits from a muted member are rejected by every app. |
-| R8 | **Remove:** the owner or a co-owner removes a member with a commit that also **changes the room keys**; the new keys are locked separately for each remaining member, so the removed person can't read any later version. Outstanding invite links stop working; new ones are needed. |
+| R8 | **Remove = the room moves (owner, 2026-11-22).** When the owner or a co-owner removes someone, a **new room** starts from the last version of the document, without that person. Everyone remaining gets an **invite to the new room** automatically: the old room's last version carries one invite per remaining member, locked with their own receiving key, and their apps move over. The removed person gets none and the old room takes no more commits. Old invite links stop working; the owner sends new ones as needed. |
 | R9 | **Clearing the table:** the owner clears a room with a final commit; every app then deletes all the room's versions and attachments from the device. Devices that never come online again keep their copy; the app says so. |
 | R10 | **No push notifications.** Members see what's new when they open the app; the owner tells people through the invite channel when they should look. |
 
@@ -43,7 +43,7 @@ The Go engine is being built (section 9). Why: `docs/DECISIONS.md`. How the desi
 | J2 | **The PIN** locks the app's vault, which holds every key (room keys and the person's own keys). Asked when the app opens and after 15 idle minutes; on devices with a security chip the vault key is kept there too. Nothing secret is stored outside the vault. |
 | J3 | **10 wrong PINs in a row** wipe the person's rooms and keys from the device; they need a new invite and join as a new member. |
 | J4 | **Forgotten PIN:** the same. |
-| J5 | **Identity:** for each room the app creates a personal key pair; its one-way hash is the member's **ID number** in that room. A different key, network identity and number per room, so rooms can't be linked by key. |
+| J5 | **Identity:** for each room the app creates a personal signing key and a receiving key (for locked invites when the room moves); the signing key's one-way hash is the member's **ID number** in that room. A different key, network identity and number per room, so rooms can't be linked by key. |
 | J6 | **Names** are unique within a room, can be real or made up, and can't imitate another member with look-alike characters. Roles show as badges (owner, co-owner) that a name can't fake. |
 | J7 | **Second device:** link it from the first by QR code (later); otherwise a new device joins as a new member. |
 | J8 | **Lost device:** the PIN and J3 protect it; ask the owner for a new invite. |
@@ -53,16 +53,16 @@ The Go engine is being built (section 9). Why: `docs/DECISIONS.md`. How the desi
 | # | Rule |
 |---|---|
 | B1 | A **whiteboard canvas** (zoom and pan) of **post-it notes** placed anywhere, in a few colours. |
-| B2 | **A note** holds text and optional **attachments**: files, images, videos, links. Images and videos preview; files open in the device's apps; links open in the browser (no automatic previews). No size limit; phones download attachments when opened. |
+| B2 | **A note** holds text and optional **attachments**: files, images, videos, links. Images and videos preview; files open in the device's apps; links open in the browser (no automatic previews). No size limit; phones download attachments when opened. If nobody in the room still has an attachment (e.g. after a revert), it shows as **missing**, and a member can attach it again by hand (owner, 2026-11-22). |
 | B3 | **👍 / 👎** on every note: one per member, changeable; counts and names shown. |
 | B4 | **Replies:** one-level thread per note; replies can carry attachments. |
-| B5 | **Editing is a draft until committed** (section 5); others see changes once committed. |
+| B5 | **Editing is a draft until committed** (section 5); others see changes once committed. Drafts are **saved on the device** (encrypted, key in the vault) and survive the app closing; uncommitted notes look like drafts, and the button says how many changes it will commit ("Commit 3 changes"). |
 | B6 | Every change is part of a **signed commit** carrying its author's name, ID number and time (the author's own clock, labelled as such; order follows the version chain, not the clock). |
 | B7 | **Editing:** only the author edits their note or reply. |
 | B8 | **Moving:** any member can move notes. |
 | B9 | **Deleting:** only the author deletes their note or reply; it disappears from the board with a marker (who, when). Earlier versions still hold it until the table is cleared or old versions are dropped; the app says "removed from the board". |
 | B10 | **Since you were last here:** what's new since the version you last saw. |
-| B11 | **Seen by N:** each note shows how many members' apps have downloaded the version containing it (counted from torrent peers, nothing extra shared). |
+| B11 | ~~Seen by N~~: dropped (2026-11-22): it can't be counted reliably from peers. |
 | B12 | Screenshots and copying can't be prevented; the app says so. |
 
 ## 5. Versions and commits (like Git)
@@ -83,19 +83,21 @@ The Go engine is being built (section 9). Why: `docs/DECISIONS.md`. How the desi
 
 | # | Rule |
 |---|---|
-| S1 | **Each version is a torrent:** the encrypted version package; **attachments are separate torrents**, shared across versions so they're never sent twice. |
-| S2 | **The "latest version" pointer** is a BitTorrent DHT mutable item (BEP 44/46) signed with the room's pointer key, with a sequence number; publishing uses compare-and-swap on that number (V3). |
-| S3 | The pointer is found by a value derived from the room key (BEP 46 salt), so people without the link can't find the room. |
-| S4 | **Encrypted:** versions and attachments are encrypted with the room key before sharing; anyone outside the room sees only encrypted pieces. |
-| S5 | Members of a room can see each other's IP addresses; outsiders can't. |
-| S6 | **Always-on members:** the owner's computer and any volunteer can stay online seeding the room's versions and attachments. Each sets a storage limit; when full, the biggest and oldest attachments are dropped first (they stay available from others). |
-| S7 | New versions reach online members within seconds to a minute; phones catch up when the app opens. |
+| S1 | **One room swarm:** members' apps that are online stay connected in one BitTorrent swarm per room (found by a value derived from the room id and secret, so outsiders can't find it). New versions are sent straight to connected peers as small **change sets** (a BitTorrent extension message), not as new torrents. |
+| S2 | **Snapshots:** about every 100 versions, a member's app makes a signed snapshot (the version and its full board). A newcomer starts from a snapshot made by the person who invited them and receives the change sets after it, instead of replaying all of history. |
+| S3 | **Attachments are torrents** (encrypted), shared across versions so they're never sent twice. |
+| S4 | **No shared pointer key.** Each member publishes **their own** "my latest version" entry on the BitTorrent DHT (BEP 44 mutable item signed with their own key). Apps read all members' entries and pick the head with the V8 rule, so no member can jam the room for others. The commit "lock" is therefore optimistic: a commit lands on the latest version the app knows; rare collisions are settled by V8 and re-committed. |
+| S5 | **Keeping entries alive:** DHT entries expire after about two hours, so always-on members republish everyone's entries, and connected peers tell each other about new versions directly. |
+| S6 | **Encrypted:** versions, snapshots and attachments are encrypted with the room secret; anyone outside the room sees only encrypted pieces. |
+| S7 | Members of a room can see each other's IP addresses; outsiders watching the DHT can't read anything but could link IP addresses fetching the same items at the same times (accepted, 2026-11-22). |
+| S8 | **Always-on members:** the owner's computer and any volunteer stay online seeding versions and attachments and republishing entries. Each sets a storage limit; when full, the biggest and oldest attachments that no kept version needs are dropped first. |
+| S9 | New versions reach connected members within seconds; phones catch up when the app opens. |
 
 ## 7. Platforms and technology
 
 | # | Rule |
 |---|---|
-| T1 | Installed apps for Mac, Windows, iPhone and Android (no browser version). **Mac and iPhone first.** iPhone through the App Store / TestFlight. |
+| T1 | Installed apps for Mac, Windows, iPhone and Android (no browser version). **Mac and iPhone first.** iPhone through the App Store / TestFlight. Apple rejects BitTorrent clients, so Laser Room is presented as what it is (a private sync tool for invited groups) and **App Store acceptance is tested early with a minimal TestFlight build** before the full iPhone app (owner, 2026-11-22). |
 | T2 | **Engine in Go** (versions, commits, signatures, vault, BitTorrent via anacrolix/torrent and anacrolix/dht for BEP 44/46); **screens in Flutter**, calling the engine through a native bridge. |
 | T3 | English first; Arabic (right-to-left) planned. |
 
@@ -119,9 +121,12 @@ templates; close-out pack; second-device linking; Arabic; fun touches.
 
 | Area | Status |
 |---|---|
-| Versions, signed commits, chain checks, replay on top, conflicts, reverts (V1–V9) | In progress (Go, `engine/`) |
-| PIN vault (J2–J4) | Next (port from the Hypercore engine) |
-| BitTorrent: version and attachment torrents, DHT pointer with compare-and-swap (S1–S3) | Next |
-| Invite links, joining, key change on removal (R2–R8) | Next |
+| Versions, signed commits, chain checks, replay on top, conflicts, reverts (V1–V9) | Done (`engine/chain.go`, `board.go`) |
+| Invite links (R2) | Done (`engine/room.go`) |
+| Removal moves the room, with invites locked per remaining member (R8) | Done (`Room.Remove`, `MoveInvite`, `ChainFrom`) |
+| Snapshots for newcomers (S2) | Done (`Room.Snapshot`, `JoinFromSnapshot`) |
+| Drafts saved on the device (B5) | Done (`engine/drafts.go`) |
+| PIN vault (J2–J4) | Done (`engine/vault.go`) |
+| BitTorrent: room swarm and change sets, per-member DHT entries, attachments, republishing (S1, S3–S5, S8) | Next |
+| Minimal TestFlight build to test App Store acceptance (T1) | Next |
 | Flutter app for Mac and iPhone | After the engine |
-| Hypercore engine | Retired (in git history before this change) |

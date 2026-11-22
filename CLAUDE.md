@@ -40,14 +40,18 @@ documents disagree, flag it rather than silently picking one.
 engine/board.go       the board and its rules: applying a member's steps, identically on every device
 engine/chain.go       the version chain: signed versions, commit (re-play a draft on the head), Add (check a
                       received version: signature, parent, steps produce the claimed board), head choice
+engine/room.go        Room (id, secret, chain): invite links, removal = move to a new room with invites locked
+                      per remaining member (sealed boxes), snapshots for newcomers
+engine/drafts.go      drafts saved on the device, encrypted
 engine/vault.go       PIN vault: Argon2id + secretbox; wipe after 10 wrong PINs
 engine/*_test.go      tests
 .github/workflows/ci.yml   gofmt, vet, tests with the race detector, on Linux and macOS
 ```
 
-Next: BitTorrent (anacrolix/torrent + anacrolix/dht): each version and attachment a torrent; the room's "latest
-version" pointer a DHT mutable item (BEP 44/46) published with compare-and-swap. Then the Flutter app (Mac and
-iPhone first) calling the Go engine through a native bridge.
+Next: BitTorrent (anacrolix/torrent + anacrolix/dht): one swarm per room carrying change sets as an extension
+message; snapshots for newcomers; attachments as torrents; each member's own "my latest version" DHT entry
+(BEP 44, their own key; no shared pointer key); always-on members republish. A minimal TestFlight build to test
+App Store acceptance. Then the Flutter app (Mac and iPhone first) calling the Go engine through a native bridge.
 
 ## Commands
 
@@ -67,7 +71,11 @@ gofmt -l . && go vet ./...
 - Head choice (V8): longest chain, then lowest hash; losing versions' authors re-commit on top (`Orphans`).
 - "Replaced edit" (V5) compares the note's `EditedSeq` with the draft base's seq.
 - Whole-board revert restores notes and title only; membership and keys stay as they are now.
-- Removing a member bumps `KeyEpoch`: the network layer changes the room keys from that version on (R8).
+- Removing a member **moves the room** (`Room.Remove`): a `room/continue` first version in a new room carries
+  the document without them; the old room's `member/remove` step must carry a sealed invite for every remaining
+  member (checked in `applyStep`), and a moved room takes no more commits.
+- Every member's join/create step carries their receiving key (`BoxKey`); use `Join(kp, name)`.
+- Newcomers start from a snapshot signed by their inviter (`JoinFromSnapshot`).
 
 ## Related repositories
 

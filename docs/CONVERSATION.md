@@ -93,3 +93,26 @@ reasons are in `DECISIONS.md`; the resulting rules in `SPEC.md`.
 - **Built:** the Go engine's board rules, version chain and PIN vault, all tested. The JavaScript Hypercore
   engine was retired.
 - **Next:** BitTorrent sync, invite links, then the Flutter app.
+
+## 6. Hardening the Git-style design (2026-11-22)
+
+- **Critique:**
+  - a shared pointer key lets any member jam the room
+  - Apple rejects BitTorrent clients
+  - a torrent per 👍 is too slow
+  - DHT entries expire
+  - re-keying on removal and missing attachments needed designing
+  - drafts would be lost on close
+  - commit vs instant actions could confuse people
+  - "seen by N" can't be counted
+  - DHT timing could link members
+- **Owner:** fix the pointer, the sending and the republishing, the drafts, the commit styling and "seen by N";
+  test the App Store early.
+  - **On removal:** "everyone remaining gets a new invite, with the last document as the starting point, except
+    the person expelled."
+  - **Missing attachments:** "will show as missing, someone from the group will fix it by hand."
+  - **DHT timing:** ok.
+- **Built:** the room move with locked per-member invites, snapshots for newcomers, saved drafts, and invite
+  links, all tested.
+- **Next:** the BitTorrent layer and a minimal TestFlight build.
+

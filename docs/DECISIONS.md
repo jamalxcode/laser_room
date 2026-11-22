@@ -3,6 +3,26 @@
 The owner's decisions behind `SPEC.md`, newest first, with the reasons and what was dropped. The conversation
 itself, in order, is in `CONVERSATION.md`.
 
+## Hardening the Git-style design (2026-11-22)
+
+- **No shared pointer key:** one shared "latest version" key would let any member publish a huge sequence number
+  and jam the room for good. Each member now publishes their own "my latest version" entry; apps pick the head
+  by the V8 rule. The commit lock becomes optimistic (like Git without a central remote).
+- **One room swarm, change sets and snapshots** instead of a torrent per version: announcing a new torrent takes
+  seconds to minutes, far too slow for every 👍. Attachments stay torrents.
+- **Always-on members republish** DHT entries (they expire after about two hours) and peers pass news directly.
+- **Removal moves the room** (owner's idea): a new room starts from the last document without the removed
+  person; everyone remaining gets an invite automatically, locked with their own receiving key (X25519, sealed
+  boxes); the old room is frozen. Simpler and stronger than re-keying a room in place.
+- **Missing attachments** show as missing; a member re-attaches them by hand (owner).
+- **Drafts** are saved on the device (encrypted) with draft styling and "Commit N changes" (owner: fix it).
+- **"Seen by N" dropped:** it can't be counted reliably from peers.
+- **App Store risk:** Apple rejects BitTorrent clients; Laser Room is presented as a private sync tool and
+  acceptance is tested early with a minimal TestFlight build (owner: a).
+- **Accepted:** someone watching the DHT could link members' IP addresses by timing.
+- **Snapshots are trusted from the inviter:** a newcomer starts from a snapshot signed by the member who invited
+  them (named in the link), since they already trust that person.
+
 ## The room as a document passed around, committed like Git, over BitTorrent
 
 - **Decision (owner, 2026-11-22):** "Hypercore is restrictive". The room is a document passed around:

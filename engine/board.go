@@ -73,8 +73,9 @@ type Note struct {
 
 // MemberInfo is one person in the room.
 type MemberInfo struct {
-	Key     string `json:"key"` // hex public key (per room)
-	ID      string `json:"id"`  // one-way hash of the key
+	Key     string `json:"key"`               // hex public key (per room)
+	ID      string `json:"id"`                // one-way hash of the key
+	BoxKey  string `json:"box_key,omitempty"` // hex X25519 key for receiving locked invites (room moves)
 	Name    string `json:"name"`
 	Role    string `json:"role"`
 	Muted   bool   `json:"muted,omitempty"`
@@ -89,6 +90,12 @@ type Board struct {
 	Notes    map[string]*Note       `json:"notes"`
 	Cleared  bool                   `json:"cleared,omitempty"`
 	KeyEpoch int                    `json:"key_epoch"` // bumped when someone is removed (R8)
+	// After someone is removed the room moves (R8): MovedTo names the new room
+	// and Invites holds, for each remaining member, the new room's invite
+	// locked with their box key. The old room takes no more commits.
+	MovedTo string            `json:"moved_to,omitempty"`
+	Invites map[string]string `json:"invites,omitempty"`
+	From    string            `json:"from,omitempty"` // the room this one continues (after a move)
 }
 
 // MemberID is the one-way ID number of a member key.
@@ -103,11 +110,17 @@ func newBoard() *Board {
 
 // Clone deep-copies a board so applying steps never changes a stored version.
 func (b *Board) Clone() *Board {
-	c := &Board{Title: b.Title, Owner: b.Owner, Cleared: b.Cleared, KeyEpoch: b.KeyEpoch,
+	c := &Board{Title: b.Title, Owner: b.Owner, Cleared: b.Cleared, KeyEpoch: b.KeyEpoch, MovedTo: b.MovedTo, From: b.From,
 		Members: make(map[string]*MemberInfo, len(b.Members)), Notes: make(map[string]*Note, len(b.Notes))}
 	for k, m := range b.Members {
 		mm := *m
 		c.Members[k] = &mm
+	}
+	if b.Invites != nil {
+		c.Invites = make(map[string]string, len(b.Invites))
+		for k, v := range b.Invites {
+			c.Invites[k] = v
+		}
 	}
 	for k, n := range b.Notes {
 		nn := *n
@@ -142,21 +155,24 @@ func (b *Board) SortedNotes() []*Note {
 
 // Step is one change in a commit.
 type Step struct {
-	Type        string       `json:"type"`
-	ID          string       `json:"id,omitempty"`    // note id
-	Reply       string       `json:"reply,omitempty"` // reply id
-	Text        *string      `json:"text,omitempty"`
-	Attachments []Attachment `json:"attachments,omitempty"`
-	X           float64      `json:"x,omitempty"`
-	Y           float64      `json:"y,omitempty"`
-	Color       string       `json:"color,omitempty"`
-	Value       string       `json:"value,omitempty"` // vote: up, down, ""
-	Member      string       `json:"member,omitempty"`
-	Name        string       `json:"name,omitempty"`
-	Title       string       `json:"title,omitempty"`
-	On          bool         `json:"on,omitempty"`
-	To          string       `json:"to,omitempty"`  // revert target version
-	Rev         int          `json:"rev,omitempty"` // note revert: index into History
+	Type        string            `json:"type"`
+	ID          string            `json:"id,omitempty"`    // note id
+	Reply       string            `json:"reply,omitempty"` // reply id
+	Text        *string           `json:"text,omitempty"`
+	Attachments []Attachment      `json:"attachments,omitempty"`
+	X           float64           `json:"x,omitempty"`
+	Y           float64           `json:"y,omitempty"`
+	Color       string            `json:"color,omitempty"`
+	Value       string            `json:"value,omitempty"` // vote: up, down, ""
+	Member      string            `json:"member,omitempty"`
+	Name        string            `json:"name,omitempty"`
+	Title       string            `json:"title,omitempty"`
+	On          bool              `json:"on,omitempty"`
+	To          string            `json:"to,omitempty"`      // revert target version; new room on a move
+	Rev         int               `json:"rev,omitempty"`     // note revert: index into History
+	BoxKey      string            `json:"box_key,omitempty"` // create/join: the member's receiving key
+	Invites     map[string]string `json:"invites,omitempty"` // remove: locked invites per remaining member
+	Board       *Board            `json:"board,omitempty"`   // continue: the document the new room starts from
 }
 
 // Step types.
@@ -180,6 +196,7 @@ const (
 	StepReplyEdit   = "reply/edit"
 	StepReplyDelete = "reply/delete"
 	StepRevert      = "room/revert"
+	StepContinue    = "room/continue" // first step of a room that a removal moved to
 )
 
 // Outcome says what happened to one step when it was applied.
@@ -268,6 +285,9 @@ func applyStep(b *Board, author string, at int64, seq uint64, base string, s Ste
 	if b.Cleared {
 		return "the table has been cleared", ""
 	}
+	if b.MovedTo != "" {
+		return "this room has moved", ""
+	}
 	me := b.Members[author]
 	switch s.Type {
 	case StepCreate:
@@ -276,7 +296,28 @@ func applyStep(b *Board, author string, at int64, seq uint64, base string, s Ste
 		}
 		b.Owner = author
 		b.Title = clip(s.Title, 200)
-		b.Members[author] = &MemberInfo{Key: author, ID: MemberID(author), Name: clip(strings.TrimSpace(s.Name), maxName), Role: Owner}
+		b.Members[author] = &MemberInfo{Key: author, ID: MemberID(author), BoxKey: s.BoxKey, Name: clip(strings.TrimSpace(s.Name), maxName), Role: Owner}
+		return "", ""
+
+	case StepContinue:
+		// The new room after a removal starts from the old room's last
+		// document; only its owner or a co-owner can start it.
+		if b.Owner != "" || s.Board == nil {
+			return "room already started", ""
+		}
+		m := s.Board.Members[author]
+		if !canManage(m) {
+			return "only the owner or a co-owner can move the room", ""
+		}
+		nb := s.Board.Clone()
+		nb.MovedTo, nb.Invites, nb.Cleared = "", nil, false
+		nb.From = s.To
+		for k, mm := range nb.Members {
+			if mm.Removed {
+				delete(nb.Members, k)
+			}
+		}
+		*b = *nb
 		return "", ""
 
 	case StepJoin:
@@ -292,7 +333,7 @@ func applyStep(b *Board, author string, at int64, seq uint64, base string, s Ste
 		if name == "" || b.nameTaken(name, author) {
 			return "that name is taken in this room", ""
 		}
-		b.Members[author] = &MemberInfo{Key: author, ID: MemberID(author), Name: name, Role: Member}
+		b.Members[author] = &MemberInfo{Key: author, ID: MemberID(author), BoxKey: s.BoxKey, Name: name, Role: Member}
 		return "", ""
 
 	case StepName:
@@ -325,8 +366,25 @@ func applyStep(b *Board, author string, at int64, seq uint64, base string, s Ste
 		if t == nil || t.Removed || t.Role == Owner {
 			return "can't remove that member", ""
 		}
+		// Everyone who stays must get an invite to the new room (R8).
+		if s.To == "" {
+			return "a removal must move the room", ""
+		}
+		for k, m := range b.Members {
+			if k == s.Member || m.Removed {
+				continue
+			}
+			if _, ok := s.Invites[k]; !ok {
+				return "a remaining member has no invite to the new room", ""
+			}
+		}
+		if _, ok := s.Invites[s.Member]; ok {
+			return "the removed member can't be invited to the new room", ""
+		}
 		t.Removed = true
-		b.KeyEpoch++ // new room keys from this version on (R8)
+		b.KeyEpoch++
+		b.MovedTo = s.To
+		b.Invites = s.Invites
 		return "", ""
 
 	case StepCoOwner:

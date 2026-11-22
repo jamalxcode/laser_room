@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+
+	"golang.org/x/crypto/nacl/box"
 )
 
 // Version is one commit: its parent, the author's steps, and the hash of the
@@ -41,17 +43,24 @@ func boardHash(b *Board) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// KeyPair is a member's per-room signing key.
+// KeyPair is a member's per-room keys: Ed25519 for signing versions, X25519
+// ("box") for receiving locked invites when the room moves.
 type KeyPair struct {
-	Public  ed25519.PublicKey
-	Private ed25519.PrivateKey
+	Public     ed25519.PublicKey  `json:"public"`
+	Private    ed25519.PrivateKey `json:"private"`
+	BoxPublic  [32]byte           `json:"box_public"`
+	BoxPrivate [32]byte           `json:"box_private"`
 }
 
-// NewKeyPair makes a fresh per-room key pair.
+// NewKeyPair makes fresh per-room keys.
 func NewKeyPair() KeyPair {
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
-	return KeyPair{pub, priv}
+	bpub, bpriv, _ := box.GenerateKey(rand.Reader)
+	return KeyPair{Public: pub, Private: priv, BoxPublic: *bpub, BoxPrivate: *bpriv}
 }
+
+// BoxKey is the receiving key as stored on the board.
+func (k KeyPair) BoxKey() string { return hex.EncodeToString(k.BoxPublic[:]) }
 
 // Key is the member key as stored on the board.
 func (k KeyPair) Key() string { return hex.EncodeToString(k.Public) }
@@ -97,16 +106,41 @@ func newChain(clock func() int64) *Chain {
 // NewRoom creates a room's first version: the owner creates it with a title
 // and their name (R1).
 func NewRoom(owner KeyPair, title, name string, clock func() int64) (*Chain, error) {
+	v := &Version{Seq: 1, Author: owner.Key(), At: clock(), Steps: []Step{{Type: StepCreate, Title: title, Name: name, BoxKey: owner.BoxKey()}}}
+	return startChain(owner, v, clock)
+}
+
+// startChain signs a room's first version (create, or continue after a move).
+func startChain(author KeyPair, v *Version, clock func() int64) (*Chain, error) {
 	c := newChain(clock)
-	v := &Version{Seq: 1, Author: owner.Key(), At: clock(), Steps: []Step{{Type: StepCreate, Title: title, Name: name}}}
 	board, out := apply(newBoard(), v.Author, v.At, v.Seq, "", v.Steps, c)
 	if !out[0].Applied {
 		return nil, errors.New(out[0].Reason)
 	}
 	v.BoardHash = boardHash(board)
-	owner.sign(v)
+	author.sign(v)
 	h := v.Hash()
 	c.versions[h], c.boards[h], c.head = v, board, h
+	return c, nil
+}
+
+// ChainFrom checks a room's first version received from the network (a new
+// room's create, or the continue that starts a moved room) and starts a chain.
+func ChainFrom(first *Version, clock func() int64) (*Chain, error) {
+	if first.Parent != "" || first.Seq != 1 || len(first.Steps) != 1 ||
+		(first.Steps[0].Type != StepCreate && first.Steps[0].Type != StepContinue) {
+		return nil, errors.New("not a room's first version")
+	}
+	if err := verify(first); err != nil {
+		return nil, err
+	}
+	c := newChain(clock)
+	board, out := apply(newBoard(), first.Author, first.At, first.Seq, "", first.Steps, c)
+	if !out[0].Applied || boardHash(board) != first.BoardHash {
+		return nil, errors.New("first version doesn't check out")
+	}
+	h := first.Hash()
+	c.versions[h], c.boards[h], c.head = first, board, h
 	return c, nil
 }
 
@@ -273,7 +307,7 @@ func (c *Chain) Orphans(author string) []*Version {
 
 // Join is the step a new member commits after opening an invite link: they
 // introduce themselves with a name (R3, J1).
-func Join(name string) Step { return Step{Type: StepJoin, Name: name} }
+func Join(kp KeyPair, name string) Step { return Step{Type: StepJoin, Name: name, BoxKey: kp.BoxKey()} }
 
 // NewID makes a random id for a note or reply.
 func NewID() string {

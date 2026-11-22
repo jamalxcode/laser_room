@@ -56,14 +56,14 @@ func TestRoomCommitsAndChecks(t *testing.T) {
 	}
 
 	// Ann and Bob join (they hold the invite link's keys) and pick names.
-	mustCommit(t, room, ann, Draft{Base: room.Head(), Steps: []Step{Join("Ann")}})
-	if _, _, err := room.Commit(bob, Draft{Steps: []Step{Join("ann")}}, ""); err == nil || !strings.Contains(err.Error(), "nothing") {
+	mustCommit(t, room, ann, Draft{Base: room.Head(), Steps: []Step{Join(ann, "Ann")}})
+	if _, _, err := room.Commit(bob, Draft{Steps: []Step{Join(bob, "ann")}}, ""); err == nil || !strings.Contains(err.Error(), "nothing") {
 		t.Fatal("a taken name was accepted")
 	}
-	if _, _, err := room.Commit(bob, Draft{Steps: []Step{Join("Аnn")}}, ""); err == nil { // Cyrillic А
+	if _, _, err := room.Commit(bob, Draft{Steps: []Step{Join(bob, "Аnn")}}, ""); err == nil { // Cyrillic А
 		t.Fatal("a look-alike name was accepted")
 	}
-	mustCommit(t, room, bob, Draft{Steps: []Step{Join("Bob")}})
+	mustCommit(t, room, bob, Draft{Steps: []Step{Join(bob, "Bob")}})
 
 	// A note with an attachment, a vote and a reply, each a commit.
 	note := NewID()
@@ -105,7 +105,7 @@ func TestRoomCommitsAndChecks(t *testing.T) {
 func TestRulesOnlyAuthorsEditAnyoneMoves(t *testing.T) {
 	owner, ann := NewKeyPair(), NewKeyPair()
 	room, _ := NewRoom(owner, "Board", "Owner", clock())
-	mustCommit(t, room, ann, Draft{Steps: []Step{Join("Ann")}})
+	mustCommit(t, room, ann, Draft{Steps: []Step{Join(ann, "Ann")}})
 	note := NewID()
 	mustCommit(t, room, owner, Draft{Steps: []Step{{Type: StepNoteAdd, ID: note, Text: Text("mine")}}})
 
@@ -127,7 +127,7 @@ func TestRulesOnlyAuthorsEditAnyoneMoves(t *testing.T) {
 func TestDraftsReplayOnTopAndReplacedEdits(t *testing.T) {
 	owner, ann := NewKeyPair(), NewKeyPair()
 	room, _ := NewRoom(owner, "Board", "Owner", clock())
-	mustCommit(t, room, ann, Draft{Steps: []Step{Join("Ann")}})
+	mustCommit(t, room, ann, Draft{Steps: []Step{Join(ann, "Ann")}})
 	note := NewID()
 	mustCommit(t, room, owner, Draft{Steps: []Step{{Type: StepNoteAdd, ID: note, Text: Text("v1")}}})
 
@@ -165,8 +165,8 @@ func TestDraftsReplayOnTopAndReplacedEdits(t *testing.T) {
 func TestMuteRemoveCoOwnerHandoverClear(t *testing.T) {
 	owner, ann, bob := NewKeyPair(), NewKeyPair(), NewKeyPair()
 	room, _ := NewRoom(owner, "Board", "Owner", clock())
-	mustCommit(t, room, ann, Draft{Steps: []Step{Join("Ann")}})
-	mustCommit(t, room, bob, Draft{Steps: []Step{Join("Bob")}})
+	mustCommit(t, room, ann, Draft{Steps: []Step{Join(ann, "Ann")}})
+	mustCommit(t, room, bob, Draft{Steps: []Step{Join(bob, "Bob")}})
 
 	if _, _, err := room.Commit(bob, Draft{Steps: []Step{{Type: StepMute, Member: ann.Key()}}}, ""); err == nil {
 		t.Fatal("a member muted someone")
@@ -176,15 +176,11 @@ func TestMuteRemoveCoOwnerHandoverClear(t *testing.T) {
 	if _, _, err := room.Commit(bob, Draft{Steps: []Step{{Type: StepNoteAdd, ID: NewID(), Text: Text("spam")}}}, ""); err == nil {
 		t.Fatal("muted member posted")
 	}
-	epoch := room.Latest().KeyEpoch
-	mustCommit(t, room, ann, Draft{Steps: []Step{{Type: StepRemove, Member: bob.Key()}}})
-	if !room.Latest().Members[bob.Key()].Removed || room.Latest().KeyEpoch != epoch+1 {
-		t.Fatal("remove didn't take or keys didn't change")
+	// A plain remove without moving the room is refused.
+	if _, _, err := room.Commit(ann, Draft{Steps: []Step{{Type: StepRemove, Member: bob.Key()}}}, ""); err == nil {
+		t.Fatal("removal without a move accepted")
 	}
-	if _, _, err := room.Commit(bob, Draft{Steps: []Step{Join("Bob2")}}, ""); err == nil {
-		t.Fatal("a removed member re-joined with the old key")
-	}
-	if _, _, err := room.Commit(ann, Draft{Steps: []Step{{Type: StepRemove, Member: owner.Key()}}}, ""); err == nil {
+	if _, _, err := room.Commit(ann, Draft{Steps: []Step{{Type: StepRemove, Member: owner.Key(), To: "x", Invites: map[string]string{}}}}, ""); err == nil {
 		t.Fatal("co-owner removed the owner")
 	}
 	mustCommit(t, room, owner, Draft{Steps: []Step{{Type: StepHandover, Member: ann.Key()}}})
@@ -207,7 +203,7 @@ func TestMuteRemoveCoOwnerHandoverClear(t *testing.T) {
 func TestRevertWholeBoardAndOneNote(t *testing.T) {
 	owner, ann := NewKeyPair(), NewKeyPair()
 	room, _ := NewRoom(owner, "Board", "Owner", clock())
-	mustCommit(t, room, ann, Draft{Steps: []Step{Join("Ann")}})
+	mustCommit(t, room, ann, Draft{Steps: []Step{Join(ann, "Ann")}})
 	note := NewID()
 	mustCommit(t, room, ann, Draft{Steps: []Step{{Type: StepNoteAdd, ID: note, Text: Text("first")}}})
 	good := room.Head()
@@ -239,7 +235,7 @@ func TestRevertWholeBoardAndOneNote(t *testing.T) {
 func TestDoublePublishConverges(t *testing.T) {
 	owner, ann := NewKeyPair(), NewKeyPair()
 	a, _ := NewRoom(owner, "Board", "Owner", clock())
-	mustCommit(t, a, ann, Draft{Steps: []Step{Join("Ann")}})
+	mustCommit(t, a, ann, Draft{Steps: []Step{Join(ann, "Ann")}})
 	b := cloneChain(t, a)
 
 	// Both commit on the same parent without seeing each other (V8).
