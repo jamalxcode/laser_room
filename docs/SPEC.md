@@ -1,9 +1,8 @@
 # Laser Room: specification
 
 **Laser Room** is a private work table for invited groups: a whiteboard of signed, timestamped post-it notes,
-connections, 👍/👎 and question cards, with any attachment. Members are identified by a number their own device produces from its built-in biometric
-unlock (Face ID, Touch ID, an Android fingerprint or face, Windows Hello). Nobody's biometrics are collected,
-and the number can't be turned back into the person. When the work is done, the owner clears the table.
+connections, 👍/👎 and question cards, with any attachment. An invite link from the room's owner is all anyone needs to join; a PIN code protects their
+place on their device. The owner is responsible for inviting the right people. When the work is done, the owner clears the table.
 
 Status: **specification agreed, not built yet** (2026-11-22). It replaces the Laser Email and Laser Messenger
 plans (their history is in `jamalxcode/lasermail`, `docs/DECISIONS.md`).
@@ -15,31 +14,28 @@ required to answer, vote, react or read anything, and the app never enforces, ch
 participation. If an owner wants something to be compulsory, that is between them and their people, inside
 their own organisation, not something the app enforces (owner, 2026-11-22).
 
-## 1. Identity: a number from the device's biometric unlock
+## 1. Joining and identity: invite link + PIN (owner, 2026-11-22)
 
 | # | Rule |
 |---|---|
-| I0 | **Custody rule (owner, 2026-11-22):** biometrics are only the door. Apple, Google or anyone else must never hold, store or sync any Laser Room password or code: the Laser Room client app creates and keeps them. Hence Laser Room is an **installed app** (a web app could only use biometrics through passkeys, which Apple/Google keychains store and sync). |
-| I1 | The app asks the device's own biometric check (Face ID, Touch ID, Android fingerprint/face, Windows Hello; the device PIN/password where there is no biometric hardware). Any unlock the device offers counts (owner: 1 a+b+c). |
-| I1a | The app keeps all passwords in **its own encrypted vault** on the device, locked by a key in the device's security chip (Secure Enclave, Android Keystore/StrongBox, TPM) that opens only after a biometric check and is marked this-device-only, never synced. No passkeys, no iCloud Keychain, no Google Password Manager. |
-| I2 | **Two passwords, two jobs.** Both are created by the app (256-bit random) after a biometric check and kept in its vault (I1a): (1) the **board password**, made by the owner's device when the board is created: it opens and encrypts the board and **is shared** with the people invited (W2); (2) each member's **personal password**, made by their own device for that board: it is **never shared**, it signs everything the member posts, and its one-way hash is the member's **ID number** in that board. Holding the board password lets someone open the board; only the personal password lets them post as themselves. Both are 256-bit and filled in by the app, never typed. Same device + same board → the same personal password and ID number; another board → unrelated ones (owner: 6a, O1, 2026-11-22). |
-| I3 | No biometric data is read, stored or sent by Laser Room; the number can't be worked back to the person or their biometric. |
-| I4 | The number has to be unique **within the workspace only**; the owner's approval (G1) binds one person to one member slot. |
-| I5 | The scan is done **once per device** (owner: 2c). After that the device holds the identity: "it's your device; keep it with you." |
-| I6 | **New device:** the workspace owner re-admits the person under the same alias (owner: 3b). |
-| I7 | **Lost device:** the owner re-admits the person; their old posts stay under their alias, and the re-admission is shown (owner: 4a). |
-| I8 | **Aliases:** chosen per workspace, unique within it (owner: 7a). An alias can be a real name or a made-up one; people reveal who they are, if they want to, outside Laser Room (message, email, call) (owner: 8). |
-| I9 | Nothing syncs through Apple or Google. A new device gets its own personal password; the owner re-admits the person under the same alias (I6). |
+| I0 | **Custody:** Apple, Google or anyone else never hold, store or sync any Laser Room key, password or code; the Laser Room app creates and keeps them on the device. |
+| I1 | **The invite link is enough to join.** Opening it adds the person to the room. There is no approval step: **the owner is responsible for inviting the right people.** No biometrics are used. |
+| I2 | **PIN code:** on first open the person sets a PIN (at least 6 digits). It locks the app's vault on that device, so someone else picking up the device can't post as them. The app asks for it when opened and after 15 idle minutes. (Assumed reading; see open question J1.) |
+| I3 | **Identity:** the app creates the member's signing key for each room automatically and keeps it in the vault; its one-way hash is the member's **ID number** in that room. Another room → an unrelated key and number. Nothing identifies the person beyond the alias they choose. |
+| I4 | **Aliases:** chosen per room, unique within it (the app asks for another if taken). An alias can be a real name or a made-up one (a fun one is suggested). People reveal who they are, if they want to, outside Laser Room. |
+| I5 | **Forgotten PIN:** after 10 wrong tries the vault is wiped on that device; the person re-joins with the invite link under the same alias, and their earlier posts are shown as theirs again once a co-member confirms (or as a new member if not). |
+| I6 | **New or second device:** open the invite link there and set a PIN; link it to the first device by scanning a QR code between them so it is the same member, or join as a new member. |
+| I7 | **Lost device:** the PIN protects it; the person re-joins on a new device (I6). |
 
 ## 2. Workspaces (the work table)
 
 | # | Rule |
 |---|---|
 | W1 | Workspaces are **private**. The creator (owner) invites people; there is no public listing or sign-up. A collaboration tool, not a public forum. |
-| W2 | Joining is **by invitation**: the owner shares the board password (I2) with the person, through any channel they like (message, email, in person, QR code). |
+| W2 | Joining is **by invite link** (or its QR code), shared by the owner through any channel. The link carries the room key, so whoever has it can join and read: share it with the right people only. |
 | W3 | **No removal** of members (owner: 11b). The owner controls membership by choosing carefully whom to invite; each member is responsible for their own content. The owner can clear the whole table (W8) and start a new one without someone. |
 | W4 | **Ownership can be handed over** to another member. |
-| W5 | **Everything is encrypted** with a key derived from the board password; any relay, introduction service or cloud copy sees locked data only (owner: 15a). Anyone who obtains the board password can read the board, so it should be shared privately. |
+| W5 | **Everything is encrypted** with the room key carried in the invite link; anyone carrying data for the room without the link sees locked data only. Anyone who obtains the invite link can join and read, so it should be shared privately. |
 | W6 | **Sync:** whoever opens the board is brought up to date with the latest version and saves it on their device. Members' copies sync with each other whenever they are online together (owner: 9). |
 | W7 | **No host server:** rooms sync peer to peer (section 4a). The owner's computer and volunteering members' computers stay online as permanent peers (S6), keeping an encrypted copy; they can't read anything they don't have the board password for. |
 | W8 | **Clearing the table:** the owner can delete the whole board when the work is done ("files shared, decisions made, table cleared"). The cloud copy is deleted and every member's copy is wiped the next time it syncs. A modified app could ignore the wipe; the app says so. |
@@ -69,12 +65,12 @@ their own organisation, not something the app enforces (owner, 2026-11-22).
 
 | # | Decision |
 |---|---|
-| G1 | Joining needs the board password **and** the owner's approval. |
+| G1 | ~~Owner approval to join~~: dropped (2026-11-22); the invite link is enough (I1). |
 | G2 | The owner can **mute** a member (they can read, not post); no removal (W3). |
 | G3 | If the owner disappears, the board **continues with no owner**: existing members read and post; owner-only actions (approvals, alias confirmations, re-admissions, clearing) stop. |
-| G4 | The device PIN is allowed only on devices without a biometric sensor; those members are shown as "PIN-verified". |
+| G4 | ~~Biometric vs PIN~~: dropped; everyone uses an app PIN (I2). |
 | G5 | The host also stamps each post with its own clock; both times are shown if they differ. |
-| G6 | The owner's device confirms each new alias before it is used (unique within the board). |
+| G6 | Aliases are unique within a room; the app asks for another if one is taken (I4). |
 | G7 | One identity per device; shared devices aren't supported. |
 | G8 | Any member can export a signed copy of posts that anyone can verify. |
 | G9 | Phones download attachments when opened; desktops can keep everything. |
@@ -87,22 +83,22 @@ their own organisation, not something the app enforces (owner, 2026-11-22).
 | G16 | @alias mentions and simple reactions. |
 | G17 | Read receipts are shown (as information only; nobody is chased for not reading). |
 | G18 | English and Arabic (right-to-left) from the start. |
-| G19 | Lost or stolen device: nothing extra (the device can't be unlocked without the owner's biometric; the person is re-admitted on a new device, I7). |
+| G19 | Lost or stolen device: the PIN protects it (I7). |
 | G20 | Screenshots and copying can't be prevented; the app says so. |
 | D1 | iPhone app distributed through the App Store / TestFlight (Apple distributes; it never holds passwords or codes). |
-| D2 | Built with **Flutter**: one app for Mac, Windows, iPhone and Android, using each device's biometric check and security chip. |
+| D2 | App technology: open (Flutter screens over a JavaScript Hypercore core is the current proposal). |
 | D3 | Hosting: the owner's own computer (host mode) or any independent host they choose (G12). |
 
 ## 4. Architecture
 
 ```
 Laser Room installed app (Flutter: Mac, Windows, iPhone, Android; desktop can run host mode)
-├─ Identity     device biometric check → app's own vault (security-chip key, this device only)
-│               → personal password + signing key per board; board passwords
+├─ Identity     invite link (room key) + app PIN → app's own vault on the device
+│               → signing key and ID number per room
 ├─ Board data   an append-only log of signed events (post, reply, edit, delete, invite, handover,
 │               clear) merged the same way on every device (CRDT), so copies always converge
-├─ Encryption   board key derived from the board password; every event and attachment encrypted
-│               before it leaves the device; each event signed with the author's personal key
+├─ Encryption   room key from the invite link; every event and attachment encrypted before it
+│               leaves the device; each event signed with the author's key
 ├─ Storage      boards and attachments in the app's own encrypted storage on each device
 ├─ Sync         Hypercore: per-member signed logs merged by Autobase, peers found via
 │               Hyperswarm/HyperDHT; backup: BitTorrent updatable torrents (BEP 46/44)
@@ -116,11 +112,16 @@ Laser Room installed app (Flutter: Mac, Windows, iPhone, Android; desktop can ru
 |---|---|
 | S1 | **Primary: Hypercore** (Holepunch's open-source peer-to-peer stack). Each member writes to their own signed, append-only log (Hypercore); the room combines all approved members' logs into one board (Autobase, multi-writer); peers find each other and get through home routers with Hyperswarm/HyperDHT (hole punching), with no server. |
 | S2 | **Backup: updatable torrents.** The same encrypted logs are also published as BitTorrent updatable torrents (BEP 46/44): each member's key announces "my latest batch is X" on the BitTorrent DHT, so the room still syncs if Hypercore's network can't be reached. |
-| S3 | **Room link:** a `laser-room:` link / QR code carrying the room key and the board password. Lookups on both networks use a value derived from the board password, so outsiders can't find the room. |
+| S3 | **Invite link:** a `laser-room:` link / QR code carrying the room key. Lookups on both networks use a value derived from it, so outsiders can't find the room. |
 | S4 | **Files** are encrypted and shared peer to peer (Hyperdrive/Hyperblobs; BitTorrent for the backup path); the note carries the reference and key. |
 | S5 | **IP addresses:** members of a room can see each other's; outsiders can't (owner: 2a). |
 | S6 | **Availability:** the owner's computer and any member who volunteers theirs stay online as permanent peers, keeping the room reachable when phones sleep (owner: 3c). This replaces the host relay (W7); host-time stamps (G5) come from whichever permanent peer is online. |
 | S7 | **Limits:** updates reach others in seconds; phones sync when the app is open; everything on the shared networks is encrypted and unlinkable to the room without its link. |
+
+## 4b. Open questions
+
+- **J1. Whose PIN?** (a) the person sets their own PIN to lock the app on their device (assumed in I2); (b) the
+  owner gives a PIN with the invite, sent separately, so a forwarded link alone isn't enough; (c) both.
 
 ## 5. Settled questions
 
