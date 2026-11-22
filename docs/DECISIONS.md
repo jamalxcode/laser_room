@@ -1,6 +1,23 @@
 # Decisions and how we got here
 
-The owner's decisions behind `SPEC.md`, newest first, with the reasons and what was dropped.
+The owner's decisions behind `SPEC.md`, newest first, with the reasons and what was dropped. The conversation
+itself, in order, is in `CONVERSATION.md`.
+
+## Engine built on Holepunch's Autopass pattern
+
+- **Decision:** the engine follows Holepunch's Autopass (a shared store joined by invite): an Autobase per room
+  (one signed log per member, merged into one view), a Hyperbee view, Hyperswarm for connections, and
+  blind-pairing for invite links. Proven parts rather than new protocols.
+- **Authorship:** every operation's author is the writer key of the log it came from, so signatures are
+  Hypercore's own; the ID number is a one-way hash of that key.
+- **Rules run everywhere:** permission checks (who may edit, move, mute, remove, clear) run inside Autobase's
+  apply, identically on every device, so a modified app can't break them for others.
+- **Concurrent actions:** operations made at the same moment without seeing each other are put in one agreed
+  order; e.g. a muted member's post and the owner's unmute sent at the same time may land either way, the same
+  on every device.
+- **Learned:** blind-pairing needs enough DHT nodes; tests use a 10-node private test network (3 was too few).
+- **Joining needs one member online** (R3): pairing is completed by a member's app, automatically.
+- **Open:** re-keying on removal; attachment files (Hyperblobs).
 
 ## Technology and platforms
 

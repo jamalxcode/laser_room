@@ -5,8 +5,9 @@ they choose; each person picks a PIN and a name, and everyone puts ideas on a sh
 with 👍/👎, replies and attachments. There are no servers and no accounts: rooms sync peer to peer between the
 members' installed apps. Taking part is always voluntary. When the work is done, the owner clears the table.
 
-Status: **specification; not built yet.** Version of this document: 2026-11-22. Why each rule is the way it is:
-`docs/DECISIONS.md`.
+Status (2026-11-22): **the engine is built and tested** (`engine/`); **the app isn't built yet.** What's done
+and what's next: section 9. Why each rule is the way it is: `docs/DECISIONS.md`. How the design came about:
+`docs/CONVERSATION.md`.
 
 ## 1. Principles
 
@@ -99,3 +100,22 @@ clearing the table; "since you were last here"; peer-to-peer sync with always-on
 question cards; outcomes and an outcome log; pinning comments on images and PDFs, with file versions; templates;
 a close-out pack before clearing; Arabic; fun touches (suggested names, avatars, presence, tidy layout, sync
 indicator).
+
+## 9. Build status
+
+| Area | Status | Where |
+|---|---|---|
+| Rooms, owner, title | Done | `engine/lib/room.js`, `board.js` (`room/create`) |
+| Invite links, reusable and single-use (R2–R4) | Done | `Room.createInvite`, `Room.join` (blind-pairing) |
+| Joining needs one member online (R3) | Done (inherent in pairing) | `Room._onCandidate` |
+| Unique names, ID numbers (J5, J6) | Done | `board.js` (`member/name`, `memberId`) |
+| PIN vault, 10 wrong tries wipe (J2–J4) | Done (portable part); Secure Enclave wrapping comes with the app | `engine/lib/vault.js` |
+| Notes, 👍/👎, replies, edit/move/delete markers (B1–B9) | Done | `board.js` |
+| Attachment records on notes and replies (B2, B4) | Done | `board.js` (`cleanAttachments`) |
+| Attachment files themselves (Hyperblobs) | Next | |
+| Mute, remove, co-owners, handover, clearing (R5–R9) | Done | `board.js` |
+| Re-keying the room on removal (R8) | Next: today a removed member can't write but still holds the room key | |
+| "Since you were last here" (B10), read receipts (B11) | Next | |
+| Second-device linking (J7) | Later | |
+| Always-on member mode, storage limits (S5) | Later | |
+| Flutter app for Mac and iPhone, engine embedded with bare-kit (T1, T2) | Next after the engine items | |
