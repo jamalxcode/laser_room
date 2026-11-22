@@ -41,7 +41,7 @@ their own organisation, not something the app enforces (owner, 2026-11-22).
 | W4 | **Ownership can be handed over** to another member. |
 | W5 | **Everything is encrypted** with a key derived from the board password; any relay, introduction service or cloud copy sees locked data only (owner: 15a). Anyone who obtains the board password can read the board, so it should be shared privately. |
 | W6 | **Sync:** whoever opens the board is brought up to date with the latest version and saves it on their device. Members' copies sync with each other whenever they are online together (owner: 9). |
-| W7 | **Self-hosted (owner: G12 c):** each board owner hosts their own board. The desktop app has a **host mode** (e.g. on a Mac mini) that acts as the board's introduction service and keeps the encrypted copy, so the board is available when no member is online; it can't read the board. Without a running host, members sync only when online together. |
+| W7 | **No host server:** rooms sync peer to peer (section 4a). The owner's computer and volunteering members' computers stay online as permanent peers (S6), keeping an encrypted copy; they can't read anything they don't have the board password for. |
 | W8 | **Clearing the table:** the owner can delete the whole board when the work is done ("files shared, decisions made, table cleared"). The cloud copy is deleted and every member's copy is wiped the next time it syncs. A modified app could ignore the wipe; the app says so. |
 
 ## 3. The whiteboard: notes, connections, questions
@@ -104,35 +104,23 @@ Laser Room installed app (Flutter: Mac, Windows, iPhone, Android; desktop can ru
 ├─ Encryption   board key derived from the board password; every event and attachment encrypted
 │               before it leaves the device; each event signed with the author's personal key
 ├─ Storage      boards and attachments in the app's own encrypted storage on each device
-├─ Sync         direct between members' devices when possible; through the owner's host otherwise
-│               (it relays only encrypted data)
-└─ Host mode    the owner's computer introduces members, relays, keeps the encrypted copy and
-                stamps post times (W7, G5, G10); it can't read the board
+├─ Sync         Hypercore: per-member signed logs merged by Autobase, peers found via
+│               Hyperswarm/HyperDHT; backup: BitTorrent updatable torrents (BEP 46/44)
+└─ Permanent    the owner's and volunteers' computers stay online as peers, keep the encrypted
+   peers        copy and stamp times (S6, G5, G10)
 ```
 
-## 4a. Proposal: the room as an updatable torrent link
+## 4a. Sync: Hypercore first, updatable torrents as backup (owner, 2026-11-22)
 
-The owner asked (2026-11-22) whether the room's content can be a torrent link that syncs to everyone when it
-changes. Yes, with BitTorrent's standard extensions for updatable content; this could replace the host relay
-(W7), with the owner's always-on computer simply staying in the swarm as a permanent seeder.
-
-- **Room link:** `laser-room:` link (also scannable as a QR code) carrying the room's public key and the board
-  password. Normal torrents can't change (their hash is fixed to the content), so the link names a key instead
-  (BEP 46, "updating torrents via DHT mutable items").
-- **Every member publishes their own feed:** each member's changes (notes, moves, votes, replies) are appended to
-  their own encrypted, signed log; batches of changes become small torrents; the member's personal key publishes
-  "my latest batch is X" to the BitTorrent DHT (BEP 44 mutable items). The owner's room record lists the approved
-  members' feed keys. Every app follows all approved feeds and merges them (the CRDT in section 4), so everyone
-  converges on the same board with no server.
-- **Files** (images, PDFs, any attachment) are encrypted and shared as ordinary torrents; the note carries the
-  link and key.
-- **Hidden from outsiders:** DHT lookups use a value derived from the board password (BEP 46's salt), so people
-  without the room link can't find the room or its swarm. Seeders outside the room see only encrypted pieces.
-- **Limits to know:** peers in the room see each other's IP addresses (not outsiders); updates arrive in
-  seconds to a minute, not instantly; phones can't seed in the background, so someone's computer staying on
-  keeps the room available when phones are off; the BitTorrent DHT is public infrastructure, so the room's
-  existence is visible as encrypted, unlinkable entries to anyone watching, though not who's in it or what it
-  says.
+| # | Decision |
+|---|---|
+| S1 | **Primary: Hypercore** (Holepunch's open-source peer-to-peer stack). Each member writes to their own signed, append-only log (Hypercore); the room combines all approved members' logs into one board (Autobase, multi-writer); peers find each other and get through home routers with Hyperswarm/HyperDHT (hole punching), with no server. |
+| S2 | **Backup: updatable torrents.** The same encrypted logs are also published as BitTorrent updatable torrents (BEP 46/44): each member's key announces "my latest batch is X" on the BitTorrent DHT, so the room still syncs if Hypercore's network can't be reached. |
+| S3 | **Room link:** a `laser-room:` link / QR code carrying the room key and the board password. Lookups on both networks use a value derived from the board password, so outsiders can't find the room. |
+| S4 | **Files** are encrypted and shared peer to peer (Hyperdrive/Hyperblobs; BitTorrent for the backup path); the note carries the reference and key. |
+| S5 | **IP addresses:** members of a room can see each other's; outsiders can't (owner: 2a). |
+| S6 | **Availability:** the owner's computer and any member who volunteers theirs stay online as permanent peers, keeping the room reachable when phones sleep (owner: 3c). This replaces the host relay (W7); host-time stamps (G5) come from whichever permanent peer is online. |
+| S7 | **Limits:** updates reach others in seconds; phones sync when the app is open; everything on the shared networks is encrypted and unlinkable to the room without its link. |
 
 ## 5. Settled questions
 
