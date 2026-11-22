@@ -2,6 +2,13 @@
 
 The owner's decisions behind `SPEC.md`, newest first, with the reasons and what was dropped.
 
+## Technology and platforms
+
+- **Decision:** Hypercore engine in JavaScript (Bare runtime, embedded with bare-kit) + Flutter screens; Mac and
+  iPhone first, then Android and Windows.
+- **Considered:** all JavaScript with React Native screens (one language, less native feel); a Go core (no solid
+  Hypercore implementation in Go).
+
 ## 2026-11-22: spec rewritten cleanly
 
 After many design rounds the spec had piled up contradictions (host servers, biometrics, approvals that no

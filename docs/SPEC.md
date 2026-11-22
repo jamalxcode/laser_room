@@ -78,8 +78,8 @@ Status: **specification; not built yet.** Version of this document: 2026-11-22. 
 
 | # | Rule |
 |---|---|
-| T1 | **Installed apps** for Mac, Windows, iPhone and Android (everyone installs the app; there is no browser version). The iPhone app is distributed through the App Store / TestFlight (Apple distributes it but never holds any key or code). |
-| T2 | **Proposal:** the Hypercore core in JavaScript on Holepunch's Bare runtime (runs on desktop and mobile), with the screens in Flutter. To be confirmed before building. |
+| T1 | **Installed apps** for Mac, Windows, iPhone and Android (everyone installs the app; there is no browser version). **Mac and iPhone first**, then Android and Windows. The iPhone app is distributed through the App Store / TestFlight (Apple distributes it but never holds any key or code). |
+| T2 | **The engine** (rooms, invitations, PIN vault, signing, the board, sync) is JavaScript on Hypercore, running in Holepunch's Bare runtime embedded in the app (bare-kit); **the screens** are Flutter, talking to the engine over a local message channel. |
 | T3 | Languages: English first; Arabic (right-to-left) planned. |
 
 ## 7. What the app never does
