@@ -1,9 +1,11 @@
 # Laser Room
 
-A private work table for invited groups: a whiteboard of post-it notes, mind-map connections, 👍/👎 and
-multiple-choice question cards, with any attachment. Members are identified by a number their own device
-produces after its biometric unlock (Face ID, Touch ID, fingerprint, Windows Hello); no biometrics are collected
-and no Apple or Google service holds any password. Taking part is always voluntary. When the work is done, the
-owner clears the table.
+A private sharing board for groups. The room's owner sends invite links to the people they choose; each person
+picks a PIN and a name, and everyone puts ideas on a shared whiteboard of post-it notes with 👍/👎, replies and
+attachments (files, images, videos, links). No servers, no accounts: rooms sync peer to peer between members'
+installed apps, encrypted. Taking part is always voluntary. When the work is done, the owner clears the table.
 
-Status: specification stage. See [`docs/SPEC.md`](docs/SPEC.md).
+Status: specification stage.
+
+- [`docs/SPEC.md`](docs/SPEC.md): what Laser Room does.
+- [`docs/DECISIONS.md`](docs/DECISIONS.md): why, and what was dropped along the way.
