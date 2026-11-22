@@ -20,7 +20,7 @@ their own organisation, not something the app enforces (owner, 2026-11-22).
 |---|---|
 | I0 | **Custody:** Apple, Google or anyone else never hold, store or sync any Laser Room key, password or code; the Laser Room app creates and keeps them on the device. |
 | I1 | **The invite link is enough to join.** Opening it adds the person to the room. There is no approval step: **the owner is responsible for inviting the right people.** No biometrics are used. |
-| I2 | **PIN code:** on first open the person sets a PIN (at least 6 digits). It locks the app's vault on that device, so someone else picking up the device can't post as them. The app asks for it when opened and after 15 idle minutes. (Assumed reading; see open question J1.) |
+| I2 | **PIN code:** on first open the person sets a PIN (at least 6 digits). It locks the app's vault on that device, so someone else picking up the device can't post as them. The app asks for it when opened and after 15 idle minutes. The invited person picks their own PIN (owner, 2026-11-22). |
 | I3 | **Identity:** the app creates the member's signing key for each room automatically and keeps it in the vault; its one-way hash is the member's **ID number** in that room. Another room → an unrelated key and number. Nothing identifies the person beyond the alias they choose. |
 | I4 | **Aliases:** chosen per room, unique within it (the app asks for another if taken). An alias can be a real name or a made-up one (a fun one is suggested). People reveal who they are, if they want to, outside Laser Room. |
 | I5 | **Forgotten PIN:** after 10 wrong tries the vault is wiped on that device; the person re-joins with the invite link under the same alias, and their earlier posts are shown as theirs again once a co-member confirms (or as a new member if not). |
@@ -118,13 +118,9 @@ Laser Room installed app (Flutter: Mac, Windows, iPhone, Android; desktop can ru
 | S6 | **Availability:** the owner's computer and any member who volunteers theirs stay online as permanent peers, keeping the room reachable when phones sleep (owner: 3c). This replaces the host relay (W7); host-time stamps (G5) come from whichever permanent peer is online. |
 | S7 | **Limits:** updates reach others in seconds; phones sync when the app is open; everything on the shared networks is encrypted and unlinkable to the room without its link. |
 
-## 4b. Open questions
-
-- **J1. Whose PIN?** (a) the person sets their own PIN to lock the app on their device (assumed in I2); (b) the
-  owner gives a PIN with the invite, sent separately, so a forwarded link alone isn't enough; (c) both.
-
 ## 5. Settled questions
 
+- **J1 → a:** the invited person picks their own PIN (I2).
 - **O1 → superseded:** no passkeys and no syncing through Apple or Google; the app holds its own secrets (I0, I1a).
 - **O2 → superseded by G12:** each owner hosts their own board (W7).
 - **O3 → resolved:** Laser Room is an installed app, so browser storage limits don't apply.
