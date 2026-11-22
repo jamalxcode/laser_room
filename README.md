@@ -1,18 +1,19 @@
 # Laser Room
 
-A private sharing board for groups. The room's owner sends invite links to the people they choose; each person
-picks a PIN and a name, and everyone puts ideas on a shared whiteboard of post-it notes with 👍/👎, replies and
-attachments (files, images, videos, links). No servers, no accounts: rooms sync peer to peer between members'
-installed apps, encrypted. Taking part is always voluntary. When the work is done, the owner clears the table.
+A private sharing board for groups, passed around like a document. Everyone in a room can read it; anyone can
+work on their own draft; changes are **committed like Git**: a commit locks the room for a moment, lands on top
+of the latest version and becomes the new version, which spreads to everyone over **BitTorrent**. Every version
+is kept and can be reverted to. The owner sends invite links; each person picks a PIN and a name. No servers,
+no accounts. Taking part is always voluntary. When the work is done, the owner clears the table.
 
 ## Status
 
-- **Engine: built and tested.** Rooms, reusable and single-use invite links, unique names and ID numbers, notes,
-  👍/👎, replies, edit/move/delete markers, mute, remove, co-owners, handover, clearing the table, and the PIN
-  vault, on Holepunch's Hypercore stack. Tests run several simulated members on a private network (CI on Linux
-  and macOS).
-- **Next:** re-keying a room when someone is removed, attachment files, "since you were last here", then the
-  Mac and iPhone app (Flutter).
+- **Engine (Go): versions, commits and the PIN vault are built and tested.** Signed versions checked on every
+  device, drafts re-played on top of the latest version, "your edit was replaced" notices, reverts (whole board
+  or one note), mute, remove (with a key change), co-owners, handover, clearing, unique names with look-alike
+  protection, and the PIN vault (10 wrong tries wipe).
+- **Next:** BitTorrent sync (versions and attachments as torrents, a DHT "latest version" pointer with
+  compare-and-swap), invite links and joining, then the Mac and iPhone app (Flutter).
 
 ## Layout
 
@@ -20,13 +21,12 @@ installed apps, encrypted. Taking part is always voluntary. When the work is don
 docs/SPEC.md           what Laser Room does (rules, numbered) and the build status
 docs/DECISIONS.md      why, and what was dropped along the way
 docs/CONVERSATION.md   how the design came about, in order
-engine/                the engine (JavaScript, Hypercore): rooms, invites, PIN vault, board rules, sync
+engine/                the engine (Go): board rules, version chain, PIN vault
 ```
 
 ## Run the tests
 
 ```bash
 cd engine
-npm install
-npm test
+go test -race ./...
 ```

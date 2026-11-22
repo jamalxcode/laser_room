@@ -4,10 +4,11 @@ Guidance for Claude Code in this repository.
 
 ## Project
 
-**Laser Room**: a private, voluntary sharing board for invited groups. An owner sends invite links; each person
-picks a PIN and a name; everyone posts post-it notes with 👍/👎, replies and attachments on a shared whiteboard.
-No servers, no accounts: rooms sync peer to peer (Hypercore), encrypted. The owner can mute, remove and finally
-clear the table.
+**Laser Room**: a private, voluntary sharing board for invited groups. The room is a document passed around: everyone reads it;
+anyone edits their own draft; commits work like Git (pull the latest, re-play the draft on top, publish; a brief
+lock only while committing); every version is kept and can be reverted to; versions spread over BitTorrent. An
+owner sends invite links; each person picks a PIN and a name. No servers, no accounts. The owner can mute,
+remove and finally clear the table.
 
 ## Key documents (read before changing behaviour)
 
@@ -35,40 +36,41 @@ documents disagree, flag it rather than silently picking one.
 ## Layout
 
 ```
-engine/lib/room.js    Room: Autobase (one signed log per member) + Hyperbee view + Hyperswarm;
-                      invites via blind-pairing (modelled on Holepunch's Autopass)
-engine/lib/board.js   the rules, applied in Autobase's apply() identically on every device
-engine/lib/vault.js   PIN vault: Argon2id + secretbox; wipe after 10 wrong PINs
-engine/test/          brittle tests: several members on a private hyperdht testnet
-.github/workflows/ci.yml   engine tests on Linux and macOS
+engine/board.go       the board and its rules: applying a member's steps, identically on every device
+engine/chain.go       the version chain: signed versions, commit (re-play a draft on the head), Add (check a
+                      received version: signature, parent, steps produce the claimed board), head choice
+engine/vault.go       PIN vault: Argon2id + secretbox; wipe after 10 wrong PINs
+engine/*_test.go      tests
+.github/workflows/ci.yml   gofmt, vet, tests with the race detector, on Linux and macOS
 ```
 
-The Flutter app (Mac and iPhone first) will embed the engine with Holepunch's Bare runtime (bare-kit) and talk
-to it over a local message channel. It isn't built yet.
+Next: BitTorrent (anacrolix/torrent + anacrolix/dht): each version and attachment a torrent; the room's "latest
+version" pointer a DHT mutable item (BEP 44/46) published with compare-and-swap. Then the Flutter app (Mac and
+iPhone first) calling the Go engine through a native bridge.
 
 ## Commands
 
 ```bash
-cd engine && npm install && npm test
-node node_modules/brittle/cmd.js test/room.js   # one file (brittle's default bin wants the Bare runtime)
+cd engine && go test -race ./...
+gofmt -l . && go vet ./...
 ```
 
 ## Engine conventions
 
-- Every change is an operation `{ type, ..., at }` appended with `Room._append`; its author is the writer key of
-  the log it came from (never trust an author field in the operation).
-- All permission checks live in `board.js` `applyOne`. An operation that breaks a rule is ignored (no throw), so
-  every device ends up with the same board.
-- View keys: `room`, `member/<writerKeyHex>`, `name/<lowercased>`, `invite/<idHex>`, `note/<id>`,
-  `reply/<noteId>/<id>`, `vote/<noteId>/<writerKeyHex>`.
-- Deletes keep a marker (author and time) and drop the content.
-- Tests use `hyperdht/testnet` with **10** nodes (3 is too few for blind-pairing), and close stores after rooms
-  (`t.teardown(..., { order: 100 })`).
-- Operations sent at the same moment without seeing each other can be ordered either way (the same on every
-  device); tests that depend on order must wait until the other side has received the earlier operation.
+- A **version** = parent hash, seq (parent's + 1), author (hex Ed25519 per-room key), the author's clock, the
+  draft's base, a message, the **steps**, the resulting **board hash**, and a signature over the rest.
+- **All rules live in `board.go` `applyStep`.** A step that breaks a rule is skipped with a reason (never an
+  error), so the author's app and every receiving app produce the same board and the same hash.
+- Commits always re-play on the current head; if publishing fails (someone committed first), add their version
+  and commit the same draft again.
+- Head choice (V8): longest chain, then lowest hash; losing versions' authors re-commit on top (`Orphans`).
+- "Replaced edit" (V5) compares the note's `EditedSeq` with the draft base's seq.
+- Whole-board revert restores notes and title only; membership and keys stay as they are now.
+- Removing a member bumps `KeyEpoch`: the network layer changes the room keys from that version on (R8).
 
 ## Related repositories
 
+- The retired JavaScript Hypercore engine is in this repo's history (commit 944f3eb).
 - `jamalxcode/lasermail`: the earlier Laser Email (macOS email client, Go + SwiftUI, released to 0.1.6) and the
   dropped Laser Messenger design. Its CI, release and updater patterns can be reused for the app.
 - `jamalxcode/laserdot-go`: the owner's other app; source of the release-proof and updater design.

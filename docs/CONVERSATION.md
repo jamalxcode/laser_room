@@ -70,3 +70,26 @@ reasons are in `DECISIONS.md`; the resulting rules in `SPEC.md`.
 - Tests simulate several members on a private network. CI passes on Linux and macOS.
 - Told the owner: joining needs one member's app online. Removal doesn't re-key the room yet.
 - **Next:** re-keying on removal, attachment files, "since you were last here", then the Flutter app.
+
+## 5. Critique, then the Git-style redesign (2026-11-22)
+
+- **Critique of the Hypercore design:** removing someone can't change the room key in place, so the room would
+  have to move. "Clear" and "delete" only hide data, since append-only logs keep it. Autobase stored room keys
+  on disk outside the PIN vault. The same network key in every room let rooms be linked. Also flagged: read
+  receipts, self-declared timestamps, and full disks on always-on computers.
+- **Owner:** "Hypercore is restrictive, let's have the room like a document that gets passed around. Everyone
+  can read it but only one person can edit; once edited, it syncs to everyone using torrent. Get rid of
+  Hypercore."
+- Then, refining: "versions are also saved and can revert back… the person doesn't lock the document as he
+  writes, only when he commits… the latest version is pulled, the commit is placed on that, everyone else is
+  locked out till the commit is over, then the new version stands, similar to git."
+- **Owner's picks:**
+  - later commit wins on the same note
+  - everything is a commit, including 👍/👎 and replies
+  - a Commit button with a summary
+  - owners revert the board, authors revert their notes
+  - board-or-note revert
+  - Go engine
+- **Built:** the Go engine's board rules, version chain and PIN vault, all tested. The JavaScript Hypercore
+  engine was retired.
+- **Next:** BitTorrent sync, invite links, then the Flutter app.

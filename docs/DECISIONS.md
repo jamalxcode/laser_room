@@ -3,7 +3,30 @@
 The owner's decisions behind `SPEC.md`, newest first, with the reasons and what was dropped. The conversation
 itself, in order, is in `CONVERSATION.md`.
 
-## Engine built on Holepunch's Autopass pattern
+## The room as a document passed around, committed like Git, over BitTorrent
+
+- **Decision (owner, 2026-11-22):** "Hypercore is restrictive". The room is a document passed around:
+  everyone can read; anyone edits their own draft without locking anything; on **commit** the app pulls the
+  latest version, re-plays the draft on top and publishes, locking others out only for that moment; "similar to
+  git". Every version is kept and can be reverted to. Sync over BitTorrent. Hypercore removed.
+- **How:** each version is signed, names its parent and carries its steps and the resulting board's hash; every
+  app re-applies the steps and checks the hash. The "latest version" pointer is a BitTorrent DHT mutable item
+  (BEP 44/46) published with compare-and-swap on its sequence number: that's the brief lock. If two commits
+  slip through on the same parent (no server, so the DHT can't guarantee it), every app picks the same one
+  (longest chain, then lowest hash) and the other author's app re-commits on top.
+- **Owner's picks:** the later commit wins when two drafts edit the same note (the earlier text stays in its
+  history and its author is told); everything, including 👍/👎 and replies, is a commit (instant when tapped);
+  commits through a Commit button with a summary and optional note; owners and co-owners revert the whole board,
+  authors revert their own notes; revert scope is the whole board or one note.
+- **What it fixes from the Hypercore design:** no multi-writer merging; joining needs only the link (no member
+  online to let you in); removing someone changes the room keys from that version on; clearing really deletes
+  the versions.
+- **Engine language: Go** (anacrolix/torrent and anacrolix/dht implement BEP 44/46), with Flutter screens. The
+  JavaScript Hypercore engine was retired; it is in git history (commit 944f3eb).
+- **Edit detection** uses version numbers: commits always land on the main chain, so a note edited in a version
+  numbered higher than the draft's base was changed after the draft started.
+
+## (Superseded) Engine built on Holepunch's Autopass pattern
 
 - **Decision:** the engine follows Holepunch's Autopass (a shared store joined by invite): an Autobase per room
   (one signed log per member, merged into one view), a Hyperbee view, Hyperswarm for connections, and
@@ -21,8 +44,8 @@ itself, in order, is in `CONVERSATION.md`.
 
 ## Technology and platforms
 
-- **Decision:** Hypercore engine in JavaScript (Bare runtime, embedded with bare-kit) + Flutter screens; Mac and
-  iPhone first, then Android and Windows.
+- **Decision (superseded by the Git-style redesign: Go engine):** Hypercore engine in JavaScript (Bare runtime,
+  embedded with bare-kit) + Flutter screens; Mac and iPhone first, then Android and Windows.
 - **Considered:** all JavaScript with React Native screens (one language, less native feel); a Go core (no solid
   Hypercore implementation in Go).
 
@@ -48,7 +71,7 @@ longer existed), so it was rewritten from the current decisions. This file keeps
 - **Earlier:** no removal at all, with care in inviting as the only control. With approval gone, a forwarded
   link would have meant permanent access, so removal came back.
 
-## Sync: Hypercore only
+## (Superseded) Sync: Hypercore only
 
 - **Decision:** Hypercore (Autobase multi-writer, Hyperswarm/HyperDHT) for sync and files; everyone installs the
   app.
